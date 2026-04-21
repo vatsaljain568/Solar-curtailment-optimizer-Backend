@@ -1,5 +1,6 @@
 .DS_Store
 .venv
+Optimizer/
 __pycache__/
 *.pyc
 *.pyo
