@@ -4,7 +4,7 @@ from typing import List
 
 class PredictionInput(BaseModel):
     """
-    Input schema for prediction, expecting a single date.
+    Input schema for solar prediction, expecting a single date.
     """
     prediction_date: date
 
