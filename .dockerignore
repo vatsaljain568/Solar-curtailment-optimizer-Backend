@@ -1,0 +1,19 @@
+# Git
+.git
+.gitignore
+
+# Python virtual environment
+.venv/
+
+# Python cache
+__pycache__/
+*.pyc
+
+# Documentation and local artifacts
+*.md
+notebooks/
+scripts/
+.env
+.env.example
+optimizer/
+duck_curve_visualization.png
