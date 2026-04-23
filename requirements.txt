@@ -1,8 +1,9 @@
 fastapi
-uvicorn
-ortools
+uvicorn[standard]
+gunicorn
+pydantic-settings
+joblib
 scikit-learn
-xgboost
 pandas
 numpy
-google-cloud-aiplatform
+ortools
