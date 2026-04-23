@@ -2,10 +2,7 @@ from ortools.sat.python import cp_model
 import pandas as pd
 import numpy as np
 from datetime import datetime
-
-CO2_TONS_PER_MWH_COAL = 0.98
-COST_INR_PER_MWH_COAL = 4000.0
-
+from .config import settings
 
 def solve_economic_dispatch(demand_forecast, solar_forecast, coal_min_mw, coal_max_mw, ramp_rate_mw_per_step):
     """
@@ -104,8 +101,8 @@ def _calculate_summary_metrics(df_15min, mwh_factor):
     baseline_coal_mwh = summary['total_demand_mwh']
 
     summary['coal_saved_mwh'] = baseline_coal_mwh - summary['total_coal_dispatch_mwh']
-    summary['co2_avoided_tons'] = summary['coal_saved_mwh'] * CO2_TONS_PER_MWH_COAL
-    summary['cost_savings_inr'] = summary['coal_saved_mwh'] * COST_INR_PER_MWH_COAL
+    summary['co2_avoided_tons'] = summary['coal_saved_mwh'] * settings.CO2_TONS_PER_MWH_COAL
+    summary['cost_savings_inr'] = summary['coal_saved_mwh'] * settings.COST_INR_PER_MWH_COAL
 
     if baseline_coal_mwh > 0:
         summary['coal_reduction_percent'] = (summary['coal_saved_mwh'] / baseline_coal_mwh) * 100
@@ -120,25 +117,20 @@ def _calculate_summary_metrics(df_15min, mwh_factor):
     return {k: float(round(v, 2)) for k, v in summary.items()}, float(round(baseline_coal_mwh, 2))
 
 def create_dispatch_schedule(prediction_date, hourly_solar, hourly_demand):
-    COAL_MIN_MW = 400
-    COAL_MAX_MW = 800
-    COAL_RAMP_RATE_MW_PER_HOUR = 80
-    TIME_STEP_MINUTES = 15
-    
-    steps_per_hour = 60 // TIME_STEP_MINUTES
+    steps_per_hour = 60 // settings.TIME_STEP_MINUTES
     demand_forecast_15min = np.repeat(hourly_demand, steps_per_hour)
     solar_forecast_15min = np.repeat(hourly_solar, steps_per_hour)
     
-    ramp_rate_per_step = COAL_RAMP_RATE_MW_PER_HOUR // steps_per_hour
+    ramp_rate_per_step = settings.COAL_RAMP_RATE_MW_PER_HOUR // steps_per_hour
     status, results_df_15min = solve_economic_dispatch(
         demand_forecast_15min.tolist(), solar_forecast_15min.tolist(),
-        COAL_MIN_MW, COAL_MAX_MW, ramp_rate_per_step
+        settings.COAL_MIN_MW, settings.COAL_MAX_MW, ramp_rate_per_step
     )
 
     if results_df_15min is None:
         return None, f"Optimizer failed to find a solution. Status: {status}"
 
-    mwh_factor = TIME_STEP_MINUTES / 60
+    mwh_factor = settings.TIME_STEP_MINUTES / 60
     timestamps_15min = pd.to_datetime(pd.date_range(start=prediction_date, periods=len(results_df_15min), freq=f'{TIME_STEP_MINUTES}min'))
     results_df_15min['timestamp'] = timestamps_15min
     results_df_15min['time'] = results_df_15min['timestamp'].dt.strftime('%H:%M')
@@ -160,7 +152,7 @@ def create_dispatch_schedule(prediction_date, hourly_solar, hourly_demand):
 
     final_json = {
         "meta": {
-            "time_step_minutes": 15,
+            "time_step_minutes": settings.TIME_STEP_MINUTES,
             "horizon_hours": 24,
             "generated_at": datetime.now().isoformat(),
             "status": "FEASIBLE_WITH_SHORTAGE" if summary_metrics['total_shortage_mwh'] > 0 else status
