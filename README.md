@@ -1,15 +1,15 @@
-# SolarCOptimizer - Prediction Brain
+# SolarCOptimizer - Backend
 
 This repository contains the machine learning backend for the **SolarCOptimizer** project, part of the Google Solution Challenge 2026.
 
 ## Overview
 
-The core component is a FastAPI application that serves two predictive models:
+The core component is a self-contained FastAPI application that provides three key endpoints:
 1.  **`/predict/demand`**: Predicts the next 24 hours of electricity demand (MW).
 2.  **`/predict/solar`**: Predicts the next 24 hours of solar generation (MW).
 3.  **`/optimize/schedule`**: Takes the two forecasts and generates an optimal 24-hour power dispatch schedule to minimize coal consumption.
 
-These models are trained on a synthetic dataset and will be deployed to Google Vertex AI. The API, running on Google Cloud Run, provides the foundational curves for the main optimization engine.
+The application loads pre-trained models and runs all predictions and optimizations locally. It is designed to be containerized using the provided `Dockerfile` for easy deployment.
 
 See the `notebooks/` directory for model training and `app/` for the API implementation.
 

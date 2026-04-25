@@ -131,7 +131,7 @@ def create_dispatch_schedule(prediction_date, hourly_solar, hourly_demand):
         return None, f"Optimizer failed to find a solution. Status: {status}"
 
     mwh_factor = settings.TIME_STEP_MINUTES / 60
-    timestamps_15min = pd.to_datetime(pd.date_range(start=prediction_date, periods=len(results_df_15min), freq=f'{TIME_STEP_MINUTES}min'))
+    timestamps_15min = pd.to_datetime(pd.date_range(start=prediction_date, periods=len(results_df_15min), freq=f'{settings.TIME_STEP_MINUTES}min'))
     results_df_15min['timestamp'] = timestamps_15min
     results_df_15min['time'] = results_df_15min['timestamp'].dt.strftime('%H:%M')
 

@@ -24,10 +24,14 @@ except FileNotFoundError:
 
 DATA_PATH = BASE_DIR / 'data' / 'hybrid_park_dataset.csv'
 try:
-    historical_df = pd.read_csv(DATA_PATH, parse_dates=['Timestamp'], index_col='Timestamp')
+    historical_df = pd.read_csv(
+        DATA_PATH,
+        parse_dates=['Timestamp'],
+        index_col='Timestamp',
+        usecols=['Timestamp', 'Demand_MW']
+    )
 except FileNotFoundError:
     raise RuntimeError(f"Data file not found at {DATA_PATH}. Ensure the data is in the correct location.")
-
 
 
 def create_time_features(df: pd.DataFrame) -> pd.DataFrame:
@@ -108,7 +112,6 @@ def generate_demand_features(df: pd.DataFrame, previous_day_demand: list) -> pd.
 
     df['Demand_Lag_24h'] = previous_day_demand
     return df
-
 
 
 app = FastAPI(

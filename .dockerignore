@@ -1,15 +1,8 @@
-# Git
 .git
 .gitignore
-
-# Python virtual environment
 .venv/
-
-# Python cache
 __pycache__/
 *.pyc
-
-# Documentation and local artifacts
 *.md
 notebooks/
 scripts/
