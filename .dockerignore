@@ -8,5 +8,4 @@ notebooks/
 scripts/
 .env
 .env.example
-optimizer/
 duck_curve_visualization.png
