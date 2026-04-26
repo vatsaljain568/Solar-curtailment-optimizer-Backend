@@ -30,13 +30,13 @@ The project tackles the "duck curve" problem, a major challenge in modern power 
 
 | Component         | Technology                                                                                             |
 | ----------------- | ------------------------------------------------------------------------------------------------------ |
-| **Web Framework** | FastAPI                                                               |
-| **ML Models**     | Scikit-learn (XgBoost Regressor)                                |
-| **Optimization**  | Google OR-Tools                          |
-| **Data Handling** | Pandas, NumPy                                       |
-| **Validation**    | Pydantic                                                                 |
-| **Serving**       | Uvicorn                                |
-| **Container**     | Docker                                                                      |
+| **Web Framework** | FastAPI                                                                                                |
+| **ML Models**     | Scikit-learn (Gradient Boosting Regressor)                                                             |
+| **Optimization**  | Google OR-Tools                                                                                        |
+| **Data Handling** | Pandas, NumPy                                                                                          |
+| **Validation**    | Pydantic                                                                                               |
+| **Serving**       | Gunicorn + Uvicorn                                                                                     |
+| **Container**     | Docker                                                                                                 |
 
 ---
 

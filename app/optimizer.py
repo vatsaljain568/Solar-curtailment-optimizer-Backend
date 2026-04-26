@@ -184,29 +184,38 @@ def create_dispatch_schedule(prediction_date, hourly_solar, hourly_demand):
     peak_solar_row = results_df_15min.loc[results_df_15min['solar_mw'].idxmax()]
     peak_solar = {"solar_mw": float(round(peak_solar_row['solar_mw'], 2)), "time": peak_solar_row['time']}
 
-    # --- Dynamic Status & Confidence Score ---
-    peak_solar_mw = results_df_15min['solar_mw'].max()
-    safe_window_df = results_df_15min[
-        (results_df_15min['solar_mw'] > 0.5 * peak_solar_mw) & 
-        (results_df_15min['net_load_mw'] < settings.COAL_MIN_MW)
-    ]
-    if not safe_window_df.empty:
-        start_time = safe_window_df.iloc[0]['time']
-        end_time = safe_window_df.iloc[-1]['time']
-        status_section = [{"type": "SAFE_REDUCTION_WINDOW", "start": start_time, "end": end_time, "message": f"Net load is below coal minimum ({settings.COAL_MIN_MW} MW). Ideal for coal optimisation."}]
+    # --- Dynamic Status Section ---
+    # Per user feedback, "safe to reduce" is any period where solar actively displaces coal.
+    solar_active_df = results_df_15min[results_df_15min['solar_used_mw'] > 1] # Use > 1 MW to ignore trace amounts
+
+    if not solar_active_df.empty:
+        start_time = solar_active_df.iloc[0]['time']
+        end_time = solar_active_df.iloc[-1]['time']
+        status_section = [{
+            "type": "SAFE_TO_REDUCE",
+            "start": start_time,
+            "end": end_time,
+            "message": f"Solar power is actively reducing coal generation between {start_time} and {end_time}."
+        }]
     else:
-        status_section = []
+        status_section = [{
+            "type": "NOT_SAFE_TO_REDUCE",
+            "start": "N/A",
+            "end": "N/A",
+            "message": "No opportunity to displace coal with solar power during this period."
+        }]
     
     # Calculate a more nuanced confidence score
     confidence_score = 100.0
-    # Heavy penalty for any energy shortage
+    # Heavy penalty for any energy shortage. A ~40% shortage results in a score of 0.
+
     if summary_metrics['total_demand_mwh'] > 0:
-        shortage_penalty = (summary_metrics['total_shortage_mwh'] / summary_metrics['total_demand_mwh']) * 2000
+        shortage_penalty = (summary_metrics['total_shortage_mwh'] / summary_metrics['total_demand_mwh']) * 250
         confidence_score -= shortage_penalty
     
     # Minor penalty for solar curtailment
     if summary_metrics['total_solar_available_mwh'] > 0:
-        curtailment_penalty = (summary_metrics['total_curtailed_mwh'] / summary_metrics['total_solar_available_mwh']) * 10
+        curtailment_penalty = (summary_metrics['total_curtailed_mwh'] / summary_metrics['total_solar_available_mwh']) * 25
         confidence_score -= curtailment_penalty
         
     confidence_score = int(max(0, min(confidence_score, 100))) # Clamp score between 0 and 100
