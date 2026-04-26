@@ -2,8 +2,15 @@ import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
 from datetime import datetime, timedelta
-import json
- 
+from pathlib import Path
+
+# --- Setup Paths ---
+# Define base directory relative to the script file to make it runnable from anywhere
+SCRIPT_DIR = Path(__file__).resolve().parent
+BASE_DIR = SCRIPT_DIR.parent
+DATA_DIR = BASE_DIR / 'data'
+DATA_DIR.mkdir(exist_ok=True) # Ensure data directory exists
+
 np.random.seed(42)
 
 def generate_hybrid_park_dataset():
@@ -104,7 +111,7 @@ def generate_hybrid_park_dataset():
     df = pd.DataFrame(data)
 
     # Save to CSV
-    csv_path = 'hybrid_park_dataset.csv'
+    csv_path = DATA_DIR / 'hybrid_park_dataset.csv'
     df.to_csv(csv_path, index=False)
     print(f"✓ Dataset saved to {csv_path}")
     print(f"  Shape: {df.shape}")
@@ -121,7 +128,8 @@ def visualize_duck_curve(date_str='2025-07-15'):
     Args:
         date_str: Date to visualize (default: hot day in mid-July monsoon)
     """
-    df = pd.read_csv('hybrid_park_dataset.csv')
+    csv_path = DATA_DIR / 'hybrid_park_dataset.csv'
+    df = pd.read_csv(csv_path)
     df['Timestamp'] = pd.to_datetime(df['Timestamp'])
 
     # Filter for the requested date
@@ -212,7 +220,7 @@ def visualize_duck_curve(date_str='2025-07-15'):
     plt.tight_layout()
 
     # Save figure
-    fig_path = 'duck_curve_visualization.png'
+    fig_path = DATA_DIR / 'duck_curve_visualization.png'
     plt.savefig(fig_path, dpi=300, bbox_inches='tight')
     print(f"✓ Visualization saved to {fig_path}")
 
@@ -259,6 +267,6 @@ if __name__ == "__main__":
 
     print("\n" + "="*70)
     print("✓ All files generated successfully!")
-    print("  - hybrid_park_dataset.csv (8,760 rows)")
-    print("  - duck_curve_visualization.png (4-panel analysis)")
+    print(f"  - {DATA_DIR / 'hybrid_park_dataset.csv'} (8,760 rows)")
+    print(f"  - {DATA_DIR / 'duck_curve_visualization.png'} (4-panel analysis)")
     print("="*70)

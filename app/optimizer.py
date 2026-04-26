@@ -69,23 +69,60 @@ def solve_economic_dispatch(demand_forecast, solar_forecast, coal_min_mw, coal_m
         return solver.StatusName(status), None
 
 def _generate_alerts_and_table(df_15min):
+    """
+    Dynamically generates alerts and an action table based on the optimization results.
+    """
     alerts = []
     table = []
+ 
+    # --- Dynamic Alerts ---
     if df_15min['shortage_mw'].sum() > 0:
         first_shortage = df_15min[df_15min['shortage_mw'] > 0].iloc[0]
         alerts.append({
             "time": first_shortage['time'],
             "action": "ALERT_SHORTAGE",
             "value_mw": float(round(first_shortage['shortage_mw'], 2)),
-            "reason": "Demand exceeds physical ramp/capacity limits. Load shedding required."
+            "reason": "Demand exceeds generation capacity. Load shedding may be required."
         })
-    
-    table.append({
-        "time": "05:00",
-        "action": "RAMP_UP",
-        "value_mw": 20.0,
-        "reason": "Demand increasing"
-    })
+ 
+    # Alert for significant solar curtailment
+    if df_15min['curtailment_mw'].sum() > 0:
+        peak_curtailment_row = df_15min.loc[df_15min['curtailment_mw'].idxmax()]
+        # Only alert if curtailment is significant (e.g., >1% of peak solar)
+        if peak_curtailment_row['curtailment_mw'] > 0.01 * df_15min['solar_mw'].max():
+            alerts.append({
+                "time": peak_curtailment_row['time'],
+                "action": "SOLAR_CURTAILMENT",
+                "value_mw": float(round(peak_curtailment_row['curtailment_mw'], 2)),
+                "reason": "Excess solar generation could not be utilized."
+            })
+ 
+    # --- Dynamic Action Table ---
+    # Find the steepest ramp-up and ramp-down required of the coal plant
+    df_15min['coal_ramp'] = df_15min['coal_mw'].diff()
+ 
+    steepest_up_idx = df_15min['coal_ramp'].idxmax()
+    if pd.notna(steepest_up_idx):
+        ramp_up_info = df_15min.loc[steepest_up_idx]
+        table.append({
+            "time": ramp_up_info['time'],
+            "action": "RAMP_UP",
+            "value_mw": float(round(ramp_up_info['coal_ramp'], 2)),
+            "reason": "Steepest required coal power increase."
+        })
+ 
+    steepest_down_idx = df_15min['coal_ramp'].idxmin()
+    if pd.notna(steepest_down_idx):
+        ramp_down_info = df_15min.loc[steepest_down_idx]
+        # Only add if it's a meaningful ramp-down event
+        if ramp_down_info['coal_ramp'] < -1:
+            table.append({
+                "time": ramp_down_info['time'],
+                "action": "RAMP_DOWN",
+                "value_mw": float(round(ramp_down_info['coal_ramp'], 2)),
+                "reason": "Steepest required coal power decrease."
+            })
+ 
     return alerts, table
 
 def _calculate_summary_metrics(df_15min, mwh_factor):
@@ -134,21 +171,45 @@ def create_dispatch_schedule(prediction_date, hourly_solar, hourly_demand):
     timestamps_15min = pd.to_datetime(pd.date_range(start=prediction_date, periods=len(results_df_15min), freq=f'{settings.TIME_STEP_MINUTES}min'))
     results_df_15min['timestamp'] = timestamps_15min
     results_df_15min['time'] = results_df_15min['timestamp'].dt.strftime('%H:%M')
+    results_df_15min['net_load_mw'] = results_df_15min['demand_mw'] - results_df_15min['solar_used_mw']
 
     hourly_data_df = results_df_15min.resample('h', on='timestamp').mean(numeric_only=True)
     hourly_timestamps = hourly_data_df.index
     hourly_data_df['timestamp'] = hourly_timestamps.map(lambda x: x.isoformat())
     hourly_data_df['time'] = hourly_timestamps.strftime('%H:%M')
     
-    summary_metrics, baseline_coal_mwh = _calculate_summary_metrics(results_df_15min, mwh_factor)
     alerts, table = _generate_alerts_and_table(results_df_15min)
+    summary_metrics, baseline_coal_mwh = _calculate_summary_metrics(results_df_15min, mwh_factor)
 
     peak_solar_row = results_df_15min.loc[results_df_15min['solar_mw'].idxmax()]
     peak_solar = {"solar_mw": float(round(peak_solar_row['solar_mw'], 2)), "time": peak_solar_row['time']}
 
-    status_section = [{"type": "SAFE_REDUCTION_WINDOW", "start": "07:45", "end": "15:45", "message": "Net load stable below 500 MW. Ideal for coal optimisation."}]
+    # --- Dynamic Status & Confidence Score ---
+    peak_solar_mw = results_df_15min['solar_mw'].max()
+    safe_window_df = results_df_15min[
+        (results_df_15min['solar_mw'] > 0.5 * peak_solar_mw) & 
+        (results_df_15min['net_load_mw'] < settings.COAL_MIN_MW)
+    ]
+    if not safe_window_df.empty:
+        start_time = safe_window_df.iloc[0]['time']
+        end_time = safe_window_df.iloc[-1]['time']
+        status_section = [{"type": "SAFE_REDUCTION_WINDOW", "start": start_time, "end": end_time, "message": f"Net load is below coal minimum ({settings.COAL_MIN_MW} MW). Ideal for coal optimisation."}]
+    else:
+        status_section = []
     
-    confidence_score = 60 if summary_metrics['total_shortage_mwh'] > 0 else 90
+    # Calculate a more nuanced confidence score
+    confidence_score = 100.0
+    # Heavy penalty for any energy shortage
+    if summary_metrics['total_demand_mwh'] > 0:
+        shortage_penalty = (summary_metrics['total_shortage_mwh'] / summary_metrics['total_demand_mwh']) * 2000
+        confidence_score -= shortage_penalty
+    
+    # Minor penalty for solar curtailment
+    if summary_metrics['total_solar_available_mwh'] > 0:
+        curtailment_penalty = (summary_metrics['total_curtailed_mwh'] / summary_metrics['total_solar_available_mwh']) * 10
+        confidence_score -= curtailment_penalty
+        
+    confidence_score = int(max(0, min(confidence_score, 100))) # Clamp score between 0 and 100
 
     final_json = {
         "meta": {
