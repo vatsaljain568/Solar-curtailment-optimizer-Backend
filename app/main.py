@@ -126,6 +126,7 @@ origins = [
     "http://localhost:3000",
     "http://localhost:5173",  
     "https://solarcurtailmentoptimizer.vercel.app", 
+    "https://solar-curtailment-optimizer.vercel.app/",
 ]
 
 app.add_middleware(
@@ -135,6 +136,7 @@ app.add_middleware(
     allow_methods=["*"],  
     allow_headers=["*"],  
 )
+
 @app.get("/")
 async def read_root():
     return {"status": "Prediction Backend is online"}
