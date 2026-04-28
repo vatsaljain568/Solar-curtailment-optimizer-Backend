@@ -1,5 +1,6 @@
 from fastapi import FastAPI, HTTPException
 from .schemas import PredictionInput, PredictionOutput
+from fastapi.middleware.cors import CORSMiddleware
 from fastapi.encoders import jsonable_encoder
 from .optimizer import create_dispatch_schedule
 import joblib
@@ -118,6 +119,14 @@ app = FastAPI(
     title="SolarCOptimizer - Prediction Backend",
     description="API for forecasting solar generation, grid demand, and optimizing power dispatch.",
     version="1.0.0"
+)
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],  
+    allow_headers=["*"],  
 )
 
 @app.get("/")
